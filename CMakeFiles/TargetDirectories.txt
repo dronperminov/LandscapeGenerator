@@ -1,0 +1,3 @@
+/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/CMakeFiles/rebuild_cache.dir
+/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/CMakeFiles/edit_cache.dir
+/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/CMakeFiles/main.dir
