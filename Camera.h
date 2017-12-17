@@ -45,6 +45,10 @@ public:
   void ProcessMouseMove(GLfloat deltaX, GLfloat deltaY, GLboolean limitPitch = true);
   void ProcessMouseScroll(GLfloat deltaY);
 
+  void SetYawPitch(GLfloat yaw, GLfloat pitch);
+  void ChangeYaw(GLfloat dyaw);
+  void ChangePitch(GLfloat dpitch);
+
 private:
   void updateCameraVectors();
   float3 worldUp;

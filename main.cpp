@@ -12,10 +12,11 @@
 // SOIL
 #include "SOIL/SOIL.h"
 
-const int fieldRows = 255;
-const int fieldCols = 255;
-const float diamondR = 0.65f;
-const float maxHeight = 9;
+const int fieldRows = 127;
+const int fieldCols = 127;
+const int flatnessSize = 80;
+const float diamondR = 0.12f;
+const float maxHeight = 16;
 
 static const GLsizei WIDTH = 1800, HEIGHT = 1000; //размеры окна
 static int filling = 0;
@@ -29,7 +30,8 @@ static bool g_normal_mode = false;
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
-Camera camera(float3(0.0f, 5.0f, 30.0f));
+//Camera camera(float3(0.0f, 5.0f, 30.0f));
+Camera camera(float3(0, maxHeight + 5, 0));
 
 //функция для обработки нажатий на кнопки клавиатуры
 void OnKeyboardPressed(GLFWwindow* window, int key, int scancode, int action, int mode) {
@@ -61,6 +63,22 @@ void OnKeyboardPressed(GLFWwindow* window, int key, int scancode, int action, in
 	case GLFW_KEY_2:
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		g_normal_mode = true;
+		break;
+
+	case GLFW_KEY_LEFT:
+		camera.ChangeYaw(1.0f);
+		break;
+
+	case GLFW_KEY_RIGHT:
+		camera.ChangeYaw(-1.0f);
+		break;
+
+	case GLFW_KEY_UP:
+		camera.ChangePitch(1.0f);
+		break;
+
+	case GLFW_KEY_DOWN:
+		camera.ChangePitch(-1.0f);
 		break;
 
 	default:
@@ -374,7 +392,7 @@ int main(int argc, char** argv) {
 
 	//Создаем и загружаем геометрию поверхности
 	GLuint vaoTriStrip;
-	int triStripIndices = createTriStrip(fieldRows, fieldCols, 40, vaoTriStrip);
+	int triStripIndices = createTriStrip(fieldRows, fieldCols, flatnessSize, vaoTriStrip);
 
 
 	glViewport(0, 0, WIDTH, HEIGHT);  GL_CHECK_ERRORS;
