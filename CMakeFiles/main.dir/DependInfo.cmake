@@ -5,6 +5,10 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_C
+  "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/SOIL/SOIL.c" "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/CMakeFiles/main.dir/SOIL/SOIL.c.o"
+  "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/SOIL/image_DXT.c" "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/CMakeFiles/main.dir/SOIL/image_DXT.c.o"
+  "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/SOIL/image_helper.c" "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/CMakeFiles/main.dir/SOIL/image_helper.c.o"
+  "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/SOIL/stb_image_aug.c" "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/CMakeFiles/main.dir/SOIL/stb_image_aug.c.o"
   "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/glad.c" "/home/andrew/Desktop/Mashgraph/Task4/LandscapeGenerator/CMakeFiles/main.dir/glad.c.o"
   )
 set(CMAKE_C_COMPILER_ID "GNU")

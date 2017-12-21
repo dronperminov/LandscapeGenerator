@@ -26,27 +26,32 @@ void DiamondSquare::diamond(int step) {
 
 	for (int i = 0; i < size - 1; i += half) {
 		for (int j = (i + half) % step; j < size - 1; j += step) {
-			float avg = (field[(i - half + size - 1) % (size - 1)][j] + field[(i + half) % (size - 1)][j] + field[i][(j + half) % (size - 1)] + field[i][(j - half + size - 1) % (size - 1)]) / 4;
+			int left = i - half < 0 ? size - 1 : i - half;
+			int right = i + half > size - 1 ? 0 : i + half;
+			
+			int top = j - half < 0 ? size - 1 : j - half;
+			int bottom = j + half > size - 1 ? 0 : j + half;
+
+			float avg = (field[left][j] + field[right][j] + field[i][top] + field[i][bottom]) / 4;
 
 			field[i][j] = avg + R * getRnd(-step, step);
 			field[i][j] = field[i][j] > maxHeight ? maxHeight : field[i][j];
-
-			if (i == 0)
-				field[size - 1][j] = field[i][j];
-
-			if (j == 0)
-				field[i][size - 1] = field[i][j];
 		}
 	}
 }
 
-void DiamondSquare::normalize() {
-	min = max = fabs(field[0][0]);
+void DiamondSquare::smooth() {
+	std::vector<std::vector<float>> tmp(field);
 
-	// VERY simple smoothing
-	for (int i = 1; i < size - 1; i++)
-		for (int j = 1; j < size - 1; j++)
-			field[i][j] = (field[i - 1][j - 1] + field[i - 1][j] + field[i - 1][j + 1] + field[i][j - 1] + field[i][j] + field[i][j + 1] + field[i + 1][j - 1] + field[i + 1][j] + field[i + 1][j + 1]) / 9;
+	for (int i = 1; i < size - 1; i++) 
+		for (int j = 1; j < size - 1; j++) 
+			field[i][j] = (tmp[i - 1][j - 1] + tmp[i - 1][j] + tmp[i - 1][j + 1] + tmp[i][j - 1] + tmp[i][j] + tmp[i][j + 1] + tmp[i + 1][j - 1] + tmp[i + 1][j] + tmp[i + 1][j + 1]) / 9.0;
+}
+
+void DiamondSquare::normalize() {
+	smooth();
+
+	min = max = fabs(field[0][0]);
 
 	for (int i = 0; i < size; i++) {
 		for (int j = 0; j < size; j++) {
@@ -62,7 +67,13 @@ void DiamondSquare::normalize() {
 
 	for (int i = 0; i < size; i++)
 		for (int j = 0; j < size; j++)
-			field[i][j] = map(field[i][j], min, max, 0, maxHeight);
+			field[i][j] = map(field[i][j], min, max, min, maxHeight);
+
+	for (int i = 0; i < size; i++)
+		field[i][0] = field[i][size - 1];
+
+	for (int i = 0; i < size; i++)
+		field[0][i] = field[size - 1][i];
 }
 
 DiamondSquare::DiamondSquare(int rows, int cols, float R, float maxHeight) {

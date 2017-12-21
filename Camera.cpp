@@ -45,7 +45,7 @@ void Camera::ProcessMouseMove(GLfloat deltaX, GLfloat deltaY, GLboolean limitPit
 			pitch = -89.0f;
 	}
 
-	std::cout << "Pitch: " << pitch << ", yaw: " << yaw << ", front: (" << front.x << ", " << front.y << ", " << front.z << ")" << std::endl;
+	//std::cout << "Pitch: " << pitch << ", yaw: " << yaw << ", front: (" << front.x << ", " << front.y << ", " << front.z << ")" << std::endl;
 
 	updateCameraVectors();
 }

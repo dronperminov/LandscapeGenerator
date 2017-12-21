@@ -5,20 +5,35 @@
 #include "DiamondSquare.h"
 
 //External dependencies
-#define GLFW_DLL
+//#define GLFW_DLL
 #include <GLFW/glfw3.h>
 #include <random>
 
 // SOIL
 #include "SOIL/SOIL.h"
 
+const int waterT = 0;
+const int groundT = 1;
+
 const int fieldRows = 127;
 const int fieldCols = 127;
 const int flatnessSize = 80;
-const float diamondR = 0.12f;
-const float maxHeight = 16;
+const float diamondR = 0.01f;
+const float maxHeight = 20;
+const int landsape_repeat_x = 2;
+const int landsape_repeat_y = 2;
+const float fog_density = 50;
 
-static const GLsizei WIDTH = 1800, HEIGHT = 1000; //размеры окна
+const float waves_amp = 0.5;
+const float nwaves = 64;
+const float water_norm = 3;
+const float shift_norm = 100;
+
+const char* groundTexturePath = "textures/ground.jpg";
+const char* waterTexturePath = "textures/water.jpg";
+const char* grassTexturePath = "textures/grass.jpg";
+
+static const GLsizei WIDTH = 1600, HEIGHT = 900; //размеры окна
 static int filling = 0;
 static bool keys[1024]; //массив состояний кнопок - нажата/не нажата
 static GLfloat lastX = 400, lastY = 300; //исходное положение мыши
@@ -26,12 +41,16 @@ static bool firstMouse = true;
 static bool g_captureMouse = true;  // Мышка захвачена нашим приложением или нет?
 static bool g_capturedMouseJustNow = false;
 static bool g_normal_mode = false;
+static bool g_change_day = false;
+static bool g_regenerate = false;
+static bool g_shadows = false;
+static bool g_fog = false;
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
 //Camera camera(float3(0.0f, 5.0f, 30.0f));
-Camera camera(float3(0, maxHeight + 5, 0));
+Camera camera(float3(0, maxHeight, 0));
 
 //функция для обработки нажатий на кнопки клавиатуры
 void OnKeyboardPressed(GLFWwindow* window, int key, int scancode, int action, int mode) {
@@ -55,13 +74,34 @@ void OnKeyboardPressed(GLFWwindow* window, int key, int scancode, int action, in
 		}
 		break;
 
+	case GLFW_KEY_F:
+		if (action == GLFW_PRESS)
+			g_fog ^= 1;
+		break;
+
+	case GLFW_KEY_G:
+		if (action == GLFW_PRESS)
+			g_change_day ^= 1;
+		break;
+
+	case GLFW_KEY_R:
+		if (action == GLFW_PRESS)
+			g_regenerate = true;
+		break;
+
+	case GLFW_KEY_Z:
+		if (action == GLFW_PRESS)
+			g_shadows ^= 1;
+		break;
+
+
 	case GLFW_KEY_1:
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		g_normal_mode = false;	
 		break;
 
 	case GLFW_KEY_2:
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		g_normal_mode = true;
 		break;
 
@@ -127,6 +167,10 @@ void OnMouseScroll(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 void doCameraMovement(Camera &camera, GLfloat deltaTime) {
+	camera.pos.x = camera.pos.x - int(camera.pos.x / flatnessSize) * flatnessSize;
+	//camera.pos.y = camera.pos.y - int(camera.pos.y / flatnessSize) * flatnessSize; // don't need to represent up :)
+	camera.pos.z = camera.pos.z - int(camera.pos.z / flatnessSize) * flatnessSize;
+
 	if (keys[GLFW_KEY_W])
 		camera.ProcessKeyboard(FORWARD, deltaTime);
 	if (keys[GLFW_KEY_A])
@@ -143,8 +187,9 @@ void doCameraMovement(Camera &camera, GLfloat deltaTime) {
 \param cols - число столбцов
 \param size - размер плоскости
 \param vao - vertex array object, связанный с созданной плоскостью
+\param type - water or grounds
 */
-static int createTriStrip(int rows, int cols, float size, GLuint &vao) {
+static int createTriStrip(int rows, int cols, float size, GLuint &vao, int type = groundT) {
 	int numIndices = 2 * cols * (rows - 1) + rows - 1;
 
 	std::vector<GLfloat> vertices_vec; //вектор атрибута координат вершин
@@ -164,25 +209,45 @@ static int createTriStrip(int rows, int cols, float size, GLuint &vao) {
 	std::vector<GLuint> indices_vec; //вектор индексов вершин для передачи шейдерной программе
 	indices_vec.reserve(numIndices);
 
-	DiamondSquare diamond(rows, cols, diamondR, maxHeight);
-	diamond.start();
+	if (type == groundT) {
+		DiamondSquare diamond(rows, cols, diamondR, maxHeight);
+		diamond.start();
 
-	// get centered values of map
-	int dx = (diamond.getSize() - 1 - cols) / 2;
-	int dz = (diamond.getSize() - 1 - rows) / 2;
+		// get centered values of map
+		int dx = (diamond.getSize() - 1 - cols) / 2;
+		int dz = (diamond.getSize() - 1 - rows) / 2;
 
-	for (int z = 0; z < rows; z++) {
-		for (int x = 0; x < cols; x++) {
-			float xx = -size / 2 + x * size / cols;
-			float zz = -size / 2 + z * size / rows;
-			float yy = diamond(z + dz, x + dx);
+		for (int z = 0; z < rows; z++) {
+			for (int x = 0; x < cols; x++) {
+				float xx = -size / 2 + x * size / (cols - 1);
+				float zz = -size / 2 + z * size / (rows - 1);
+				float yy = diamond(z + dz, x + dx);
 
-			vertices_vec.push_back(xx);
-			vertices_vec.push_back(yy);
-			vertices_vec.push_back(zz);
+				vertices_vec.push_back(xx);
+				vertices_vec.push_back(yy);
+				vertices_vec.push_back(zz);
 
-			texcoords_vec.push_back(x / float(cols - 1)); // вычисляем первую текстурную координату u, для плоскости это просто относительное положение вершины
-			texcoords_vec.push_back(z / float(rows - 1)); // аналогично вычисляем вторую текстурную координату v
+				texcoords_vec.push_back(x / float(cols - 1)); // вычисляем первую текстурную координату u, для плоскости это просто относительное положение вершины
+				texcoords_vec.push_back(z / float(rows - 1)); // аналогично вычисляем вторую текстурную координату v
+			}
+		}
+	} 
+
+	if (type == waterT) {
+		for (int z = 0; z < rows; z++) {
+			for (int x = 0; x < cols; x++) {
+				//вычисляем координаты каждой из вершин
+				float xx = -size / 2 + x * size / (cols - 1);
+				float zz = -size / 2 + z * size / (rows - 1);
+				float yy = 1.1 + (waves_amp * sin(M_PI * z * nwaves / (rows - 1))) / water_norm;
+
+				vertices_vec.push_back(xx);
+				vertices_vec.push_back(yy);
+				vertices_vec.push_back(zz);
+
+				texcoords_vec.push_back(x / float(cols - 1)); // вычисляем первую текстурную координату u, для плоскости это просто относительное положение вершины
+				texcoords_vec.push_back(z / float(rows - 1)); // аналогично вычисляем вторую текстурную координату v
+			}
 		}
 	}
 
@@ -321,7 +386,6 @@ static int createTriStrip(int rows, int cols, float size, GLuint &vao) {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
-
 	return numIndices;
 }
 
@@ -341,9 +405,14 @@ int initGL() {
 	std::cout << "GLSL: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
 	std::cout << "Controls: " << std::endl;
-	std::cout << "press left mose button to capture/release mouse cursor  " << std::endl;
-	std::cout << "press spacebar to alternate between shaded wireframe and fill display modes" << std::endl;
-	std::cout << "press ESC to exit" << std::endl;
+	std::cout << "* press left mose button to capture/release mouse cursor  " << std::endl;
+	std::cout << "* press spacebar to alternate between shaded wireframe and fill display modes" << std::endl;
+	std::cout << "* press 'G' to start changing day and night" << std::endl;
+	std::cout << "* press 'F' to start fog" << std::endl;
+	std::cout << "* press 'R' to regenerate landscape" << std::endl;
+	std::cout << "* press 'Z' to switch shadow mode" << std::endl;
+	std::cout << "* use arrows to change camera angle" << std::endl;
+	std::cout << "* press ESC to exit" << std::endl;
 
 	return 0;
 }
@@ -358,7 +427,8 @@ int main(int argc, char** argv) {
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	GLFWwindow*  window = glfwCreateWindow(WIDTH, HEIGHT, "OpenGL basic sample", nullptr, nullptr);
+	GLFWwindow*  window = glfwCreateWindow(WIDTH, HEIGHT, "Dronperminov | Mashgraph task 4", nullptr, nullptr);
+
 	if (window == nullptr) {
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
@@ -390,21 +460,31 @@ int main(int argc, char** argv) {
 	shaders[GL_FRAGMENT_SHADER] = "fragment.glsl";
 	ShaderProgram program(shaders); GL_CHECK_ERRORS;
 
+	std::unordered_map<GLenum, std::string> shaders2;
+	shaders2[GL_VERTEX_SHADER]   = "water_vertex.glsl";
+	shaders2[GL_FRAGMENT_SHADER] = "water.glsl";
+	ShaderProgram program2(shaders2); GL_CHECK_ERRORS;
+
+	float shift = 0.5;
+	float light = 0.0;
+
 	//Создаем и загружаем геометрию поверхности
 	GLuint vaoTriStrip;
-	int triStripIndices = createTriStrip(fieldRows, fieldCols, flatnessSize, vaoTriStrip);
+	int triStripIndices = createTriStrip(fieldRows, fieldCols, flatnessSize, vaoTriStrip, groundT);
 
+	GLuint vaoTriStrip2;
+	int triStripIndices2 = createTriStrip(fieldRows, fieldCols, flatnessSize, vaoTriStrip2, waterT);
 
 	glViewport(0, 0, WIDTH, HEIGHT);  GL_CHECK_ERRORS;
 	glEnable(GL_DEPTH_TEST);  GL_CHECK_ERRORS;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// TEXTURES
-	GLuint texture1, texture2;
+	GLuint texture1, texture2, texture3;
 	glGenTextures(1, &texture1);
 	glBindTexture(GL_TEXTURE_2D, texture1);
 	int width, height;
-	unsigned char* image = SOIL_load_image("textures/moon.jpg", &width, &height, 0, SOIL_LOAD_RGB);
+	unsigned char* image = SOIL_load_image(groundTexturePath, &width, &height, 0, SOIL_LOAD_RGB);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
 	glGenerateMipmap(GL_TEXTURE_2D);
 	SOIL_free_image_data(image);
@@ -416,11 +496,26 @@ int main(int argc, char** argv) {
 
 	glGenTextures(1, &texture2);
 	glBindTexture(GL_TEXTURE_2D, texture2);
-	image = SOIL_load_image("textures/water2.jpg", &width, &height, 0, SOIL_LOAD_RGB);
+	image = SOIL_load_image(waterTexturePath, &width, &height, 0, SOIL_LOAD_RGB);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
 	glGenerateMipmap(GL_TEXTURE_2D);
 	SOIL_free_image_data(image);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGenTextures(1, &texture3);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, texture3);
+
+	glGenTextures(1, &texture3);
+	glBindTexture(GL_TEXTURE_2D, texture3);
+	image = SOIL_load_image(grassTexturePath, &width, &height, 0, SOIL_LOAD_RGB);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	//цикл обработки сообщений и отрисовки сцены каждый кадр
 	while (!glfwWindowShouldClose(window)) {
@@ -445,18 +540,21 @@ int main(int argc, char** argv) {
 		//модельная матрица, определяющая положение объекта в мировом пространстве
 		float4x4 model; //начинаем с единичной матрицы
 
+		light = g_change_day ? glfwGetTime() : 8;
+		shift = sin(glfwGetTime()) * flatnessSize / shift_norm;
+
 		program.StartUseShader();
 
 		//загружаем uniform-переменные в шейдерную программу (одинаковые для всех параллельно запускаемых копий шейдера)
-		program.SetUniform("view",	   view);	   GL_CHECK_ERRORS;
+		program.SetUniform("view", view); GL_CHECK_ERRORS;
 		program.SetUniform("projection", projection); GL_CHECK_ERRORS;
-		program.SetUniform("model",	  model);
+		program.SetUniform("model", model);
 		program.SetUniform("normal_mode", g_normal_mode);
+		program.SetUniform("shadow_mode", g_shadows);
+		program.SetUniform("fog_density", fog_density);
+		program.SetUniform("light", light);
+		program.SetUniform("g_fog", g_fog);
 
-		//рисуем плоскость
-		glBindVertexArray(vaoTriStrip);
-
-		// TEXTURES
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture1);
 		program.SetUniform("groundTexture", 0);
@@ -464,12 +562,55 @@ int main(int argc, char** argv) {
 		glBindTexture(GL_TEXTURE_2D, texture2);
 		program.SetUniform("waterTexture", 1);
 
-		glDrawElements(GL_TRIANGLE_STRIP, triStripIndices, GL_UNSIGNED_INT, nullptr); GL_CHECK_ERRORS;
-		glBindVertexArray(0); GL_CHECK_ERRORS;
+		//рисуем плоскость
+		glBindVertexArray(vaoTriStrip);
 
-		program.StopUseShader();
+		program.SetUniform("model", transpose(translate4x4(float3(float(0) * flatnessSize, 0.0, float(0) * flatnessSize))));
+		glDrawElements(GL_TRIANGLE_STRIP, triStripIndices, GL_UNSIGNED_INT, nullptr); GL_CHECK_ERRORS;
+
+		for (int i = -landsape_repeat_y / 2; i <= landsape_repeat_y / 2; i++) {
+			for (int j = -landsape_repeat_x / 2; j <= landsape_repeat_x / 2; j++) {
+				program.SetUniform("model", transpose(translate4x4(float3(float(i) * flatnessSize, 0.0, float(j) * flatnessSize))));
+				glDrawElements(GL_TRIANGLE_STRIP, triStripIndices, GL_UNSIGNED_INT, nullptr); GL_CHECK_ERRORS;
+			}
+		}
+
+		program2.StartUseShader(); GL_CHECK_ERRORS;
+
+		program2.SetUniform("view", view);       GL_CHECK_ERRORS;
+		program2.SetUniform("projection", projection); GL_CHECK_ERRORS;
+		program2.SetUniform("normal_mode", g_normal_mode);
+		program2.SetUniform("shadow_mode", g_shadows);
+		program2.SetUniform("fog_density", fog_density);
+		program2.SetUniform("light", light);
+		program2.SetUniform("g_fog", g_fog);
+		program2.SetUniform("shift", shift);
+
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, texture2);
+		program2.SetUniform("waterTexture", 2);
+
+		glBindVertexArray(vaoTriStrip2);
+		program2.SetUniform("model", transpose(translate4x4(float3(float(0) * flatnessSize, 0.0, float(0) * flatnessSize))));
+		glDrawElements(GL_TRIANGLE_STRIP, triStripIndices2, GL_UNSIGNED_INT, nullptr); GL_CHECK_ERRORS;
+
+		for (int i = -landsape_repeat_y / 2; i <= landsape_repeat_y / 2; i++) {
+			for (int j = -landsape_repeat_x / 2; j <= landsape_repeat_x / 2; j++) {
+				program2.SetUniform("model", transpose(translate4x4(float3(float(i) * flatnessSize, 0.0, float(j) * flatnessSize))));
+				glDrawElements(GL_TRIANGLE_STRIP, triStripIndices2, GL_UNSIGNED_INT, nullptr); GL_CHECK_ERRORS;
+			}
+		}
+
+		glBindVertexArray(0); GL_CHECK_ERRORS;
+		program2.StopUseShader();
 
 		glfwSwapBuffers(window);
+
+		if (g_regenerate) {
+			triStripIndices = createTriStrip(fieldRows, fieldCols, flatnessSize, vaoTriStrip, groundT);
+			triStripIndices2 = createTriStrip(fieldRows, fieldCols, flatnessSize, vaoTriStrip2, waterT);
+			g_regenerate = false;
+		}
 	}
 
 	//очищаем vao перед закрытием программы

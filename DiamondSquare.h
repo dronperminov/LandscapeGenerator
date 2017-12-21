@@ -18,6 +18,7 @@ class DiamondSquare {
 	void square(int step);
 	void diamond(int step);
 
+	void smooth();
 	void normalize();
 
 public:
