@@ -24,12 +24,12 @@ const int landsape_repeat_x = 2;
 const int landsape_repeat_y = 2;
 const float fog_density = 50;
 
-const float waves_amp = 0.15;
-const int nwaves = 22;
+const float waves_amp = 0.2;
+const int nwaves = 32;
 const float waves_start = 4.0;
 const float shift_norm = 100;
 
-const char* groundTexturePath = "textures/ground2.jpg";
+const char* groundTexturePath = "textures/ground.jpg";
 const char* waterTexturePath = "textures/water.jpg";
 const char* sandTexturePath = "textures/sand.jpg";
 
@@ -45,6 +45,7 @@ static bool g_change_day = false;
 static bool g_regenerate = false;
 static bool g_shadows = false;
 static bool g_fog = false;
+static bool g_normals = false;
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
@@ -87,6 +88,11 @@ void OnKeyboardPressed(GLFWwindow* window, int key, int scancode, int action, in
 	case GLFW_KEY_R:
 		if (action == GLFW_PRESS)
 			g_regenerate = true;
+		break;
+
+	case GLFW_KEY_N:
+		if (action == GLFW_PRESS)
+			g_normals ^= 1;
 		break;
 
 	case GLFW_KEY_Z:
@@ -239,7 +245,7 @@ static int createTriStrip(int rows, int cols, float size, GLuint &vao, int type 
 				//вычисляем координаты каждой из вершин
 				float xx = -size / 2 + x * size / (cols - 1);
 				float zz = -size / 2 + z * size / (rows - 1);
-				float yy = waves_start + waves_amp * fabs(sin(M_PI * nwaves * z / (rows - 1)) + cos(M_PI * nwaves * x / (cols - 1)));
+				float yy = waves_start + waves_amp * (sin(M_PI * nwaves * z / (rows - 1)) + cos(M_PI * nwaves * x / (cols - 1)));
 
 				vertices_vec.push_back(xx);
 				vertices_vec.push_back(yy);
@@ -456,14 +462,20 @@ int main(int argc, char** argv) {
 	//создание шейдерной программы из двух файлов с исходниками шейдеров
 	//используется класс-обертка ShaderProgram
 	std::unordered_map<GLenum, std::string> shaders;
-	shaders[GL_VERTEX_SHADER]   = "vertex.glsl";
-	shaders[GL_FRAGMENT_SHADER] = "fragment.glsl";
+	shaders[GL_VERTEX_SHADER]   = "shaders/vertex.glsl";
+	shaders[GL_FRAGMENT_SHADER] = "shaders/fragment.glsl";
 	ShaderProgram program(shaders); GL_CHECK_ERRORS;
 
-	std::unordered_map<GLenum, std::string> shaders2;
-	shaders2[GL_VERTEX_SHADER]   = "water_vertex.glsl";
-	shaders2[GL_FRAGMENT_SHADER] = "water.glsl";
-	ShaderProgram program2(shaders2); GL_CHECK_ERRORS;
+	std::unordered_map<GLenum, std::string> shaderWater;
+	shaderWater[GL_VERTEX_SHADER]   = "shaders/water_vertex.glsl";
+	shaderWater[GL_FRAGMENT_SHADER] = "shaders/water.glsl";
+	ShaderProgram program2(shaderWater); GL_CHECK_ERRORS;
+
+	std::unordered_map<GLenum, std::string> shadersNormals;
+	shadersNormals[GL_VERTEX_SHADER] = "shaders/vertexNormals.glsl";
+	shadersNormals[GL_FRAGMENT_SHADER] = "shaders/fragmentNormals.glsl";
+	shadersNormals[GL_GEOMETRY_SHADER] = "shaders/geometryNormals.glsl";
+	ShaderProgram programNormals(shadersNormals); GL_CHECK_ERRORS;
 
 	float shift = 0.5;
 	float light = 0.0;
@@ -603,6 +615,25 @@ int main(int argc, char** argv) {
 
 		glBindVertexArray(0); GL_CHECK_ERRORS;
 		program2.StopUseShader();
+
+		if (g_normals) {
+			programNormals.StartUseShader();
+
+			programNormals.SetUniform("view", view);	 GL_CHECK_ERRORS;
+			programNormals.SetUniform("projection", projection); GL_CHECK_ERRORS;
+			//programNormals.SetUniform("model", model);	 GL_CHECK_ERRORS;
+
+			glBindVertexArray(vaoTriStrip);
+
+			for (int i = -landsape_repeat_y / 2; i <= landsape_repeat_y / 2; i++) {
+				for (int j = -landsape_repeat_x / 2; j <= landsape_repeat_x / 2; j++) {
+					programNormals.SetUniform("model", transpose(translate4x4(float3(float(i) * flatnessSize, 0.0, float(j) * flatnessSize))));
+					glDrawElements(GL_TRIANGLES, triStripIndices, GL_UNSIGNED_INT, nullptr); GL_CHECK_ERRORS;
+				}
+			}
+
+			programNormals.StopUseShader();
+		}
 
 		glfwSwapBuffers(window);
 
