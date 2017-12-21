@@ -6,13 +6,12 @@ in vec3 vNormal;
 uniform int normal_mode;
 uniform int shadow_mode;
 uniform sampler2D groundTexture;
-//uniform sampler2D grassTexture;
-uniform sampler2D waterTexture;
+uniform sampler2D sandTexture;
 uniform float fog_density;
 uniform float light;
 uniform bool g_fog;
 
-const float groundStart = 1.0f;
+const float groundStart = 0.5f;
 const float grassStart= 11.0f;
 const float mountainsStart= 14.0f;
 const float snowStart= 18.0f;
@@ -59,9 +58,8 @@ void main() {
 		float height = vFragPosition.y;
 
 		if (height < groundStart) {
-			vec4 col = vec4(0.0f, 0.0f, 1.0f, height / groundStart); // water
-			color = vec4(kd * mix(texture(waterTexture, vTexCoords), col, 0.95f));
-			color = color * 0.95;
+			vec3 col = vec3(1.0f, 1.0f, 0.0f); // sand
+			color = vec4(kd * mix(texture(sandTexture, vTexCoords), vec4(col, 0.5f), 0.5f));
 		}
 		else {
 			vec3 col;

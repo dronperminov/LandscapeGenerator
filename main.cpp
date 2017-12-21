@@ -24,14 +24,14 @@ const int landsape_repeat_x = 2;
 const int landsape_repeat_y = 2;
 const float fog_density = 50;
 
-const float waves_amp = 0.5;
-const float nwaves = 64;
-const float water_norm = 3;
+const float waves_amp = 0.15;
+const int nwaves = 22;
+const float waves_start = 4.0;
 const float shift_norm = 100;
 
-const char* groundTexturePath = "textures/ground.jpg";
+const char* groundTexturePath = "textures/ground2.jpg";
 const char* waterTexturePath = "textures/water.jpg";
-const char* grassTexturePath = "textures/grass.jpg";
+const char* sandTexturePath = "textures/sand.jpg";
 
 static const GLsizei WIDTH = 1600, HEIGHT = 900; //размеры окна
 static int filling = 0;
@@ -239,7 +239,7 @@ static int createTriStrip(int rows, int cols, float size, GLuint &vao, int type 
 				//вычисляем координаты каждой из вершин
 				float xx = -size / 2 + x * size / (cols - 1);
 				float zz = -size / 2 + z * size / (rows - 1);
-				float yy = 1.1 + (waves_amp * sin(M_PI * z * nwaves / (rows - 1))) / water_norm;
+				float yy = waves_start + waves_amp * fabs(sin(M_PI * nwaves * z / (rows - 1)) + cos(M_PI * nwaves * x / (cols - 1)));
 
 				vertices_vec.push_back(xx);
 				vertices_vec.push_back(yy);
@@ -508,7 +508,7 @@ int main(int argc, char** argv) {
 
 	glGenTextures(1, &texture3);
 	glBindTexture(GL_TEXTURE_2D, texture3);
-	image = SOIL_load_image(grassTexturePath, &width, &height, 0, SOIL_LOAD_RGB);
+	image = SOIL_load_image(sandTexturePath, &width, &height, 0, SOIL_LOAD_RGB);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
 	glGenerateMipmap(GL_TEXTURE_2D);
 	SOIL_free_image_data(image);
@@ -559,8 +559,8 @@ int main(int argc, char** argv) {
 		glBindTexture(GL_TEXTURE_2D, texture1);
 		program.SetUniform("groundTexture", 0);
 		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, texture2);
-		program.SetUniform("waterTexture", 1);
+		glBindTexture(GL_TEXTURE_2D, texture3);
+		program.SetUniform("sandTexture", 1);
 
 		//рисуем плоскость
 		glBindVertexArray(vaoTriStrip);
@@ -570,7 +570,7 @@ int main(int argc, char** argv) {
 
 		for (int i = -landsape_repeat_y / 2; i <= landsape_repeat_y / 2; i++) {
 			for (int j = -landsape_repeat_x / 2; j <= landsape_repeat_x / 2; j++) {
-				program.SetUniform("model", transpose(translate4x4(float3(float(i) * flatnessSize, 0.0, float(j) * flatnessSize))));
+				program.SetUniform("model", transpose(translate4x4(float3(float(i) * (flatnessSize - 2), 0.0, float(j) * (flatnessSize - 2)))));
 				glDrawElements(GL_TRIANGLE_STRIP, triStripIndices, GL_UNSIGNED_INT, nullptr); GL_CHECK_ERRORS;
 			}
 		}

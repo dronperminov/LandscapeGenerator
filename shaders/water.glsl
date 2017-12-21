@@ -19,6 +19,10 @@ float ToLinear(float depth) {
 	return (2.0 * zNear * zFar) / (zFar + zNear - (gl_FragCoord.z * 2.0 - 1.0) * (zFar - zNear)) / zFar;
 }
 
+vec3 map(float value, float minValue, float maxValue, vec3 from, vec3 to) {
+	return (value - minValue) / (maxValue - minValue) * (to - from) + from;
+}
+
 void main() {
 	float day_len = 4;
 	float dirl = sin(light / day_len);
@@ -35,8 +39,7 @@ void main() {
 	} else if (shadow_mode == 1) {
 		color = vec4(vec3(ToLinear(gl_FragCoord.z)), 1.0);
 	} else {
-		col = vec4(0.0f, 0.0f, 1.0f, 0.5);
-		color = vec4(kd * mix(texture(waterTexture, vTexCoords), col, 0.35));
+		color = vec4(mix(texture(waterTexture, vTexCoords), vec4(kd * vec3(0.0, 0.6, 0.9), 1.0f), 0.5));
 	}
 
 	if (g_fog)
